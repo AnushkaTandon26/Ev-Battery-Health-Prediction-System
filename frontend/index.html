@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI in EV Battery Diagnostics and Performance Optimisation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero-header">
+            <div class="hero-header__spacer"></div>
+            <div class="hero-header__title">
+                <p>AI in EV Battery Diagnostics and</p>
+                <h1>Performance Optimisation</h1>
+            </div>
+            <div class="hero-header__brand" aria-label="BIONS">
+                <span>B</span><span>I</span><span>O</span><span>N</span><span>S</span>
+            </div>
+        </header>
+
+        <main class="scene">
+            <div class="scene__glow scene__glow--left"></div>
+            <div class="scene__glow scene__glow--right"></div>
+
+            <section class="showcase">
+                <div class="robot" aria-hidden="true">
+                    <div class="robot__head">
+                        <div class="robot__face">
+                            <span class="robot__eye"></span>
+                            <span class="robot__eye"></span>
+                            <span class="robot__mouth"></span>
+                        </div>
+                    </div>
+                    <div class="robot__body">
+                        <div class="robot__torso"></div>
+                        <div class="robot__arm robot__arm--left"></div>
+                        <div class="robot__arm robot__arm--right"></div>
+                        <div class="robot__leg robot__leg--left"></div>
+                        <div class="robot__leg robot__leg--right"></div>
+                    </div>
+                </div>
+
+                <section class="laptop" aria-label="EV battery dashboard">
+                    <div class="laptop__bezel">
+                        <div class="laptop__camera"></div>
+                        <div class="dashboard">
+                            <aside class="dashboard__sidebar">
+                                <button class="menu-item is-active" data-tab="overview" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>Dashboard</span>
+                                </button>
+                                <button class="menu-item" data-tab="vehicle" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>Vehicle</span>
+                                </button>
+                                <button class="menu-item" data-tab="configuration" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>Configuration</span>
+                                </button>
+                                <button class="menu-item" data-tab="history" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>History</span>
+                                </button>
+                                <button class="menu-item" data-tab="messages" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>Message</span>
+                                </button>
+                                <button class="menu-item" data-tab="settings" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>Settings</span>
+                                </button>
+                                <button class="menu-item" data-tab="favorite" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>Favourite</span>
+                                </button>
+                            </aside>
+
+                            <div class="dashboard__content">
+                                <div class="dashboard__topline">
+                                    <div>
+                                        <p class="screen-label" id="screen-label">Live battery dashboard</p>
+                                        <h2 id="screen-title">AI pack monitoring cockpit</h2>
+                                    </div>
+                                    <div class="dashboard__actions">
+                                        <button class="icon-button" id="refresh-btn" type="button" aria-label="Refresh dashboard"></button>
+                                        <button class="icon-button icon-button--alert" type="button" aria-label="Notifications"></button>
+                                    </div>
+                                </div>
+
+                                <div class="screen-panel is-active" data-panel="overview">
+                                    <div class="stats-cards">
+                                        <article class="stat-card stat-card--soc">
+                                            <div class="stat-card__icon"></div>
+                                            <div>
+                                                <strong id="soc-score">83%</strong>
+                                                <span>SOC</span>
+                                            </div>
+                                        </article>
+                                        <article class="stat-card">
+                                            <strong id="ride-hours">6 hrs</strong>
+                                            <span>Ride today</span>
+                                            <small id="ride-hours-note">loading fleet activity</small>
+                                        </article>
+                                        <article class="stat-card">
+                                            <strong id="uptime-hours">10 hrs</strong>
+                                            <span>Uptime today</span>
+                                            <small id="uptime-hours-note">live system uptime</small>
+                                        </article>
+                                        <article class="stat-card">
+                                            <strong id="distance-cover">81 km</strong>
+                                            <span>Range charge</span>
+                                            <small id="distance-note">estimated from recent SOC</small>
+                                        </article>
+                                    </div>
+
+                                    <div class="screen-grid">
+                                        <article class="panel panel--chart">
+                                            <div class="panel__header">
+                                                <div>
+                                                    <h3>SOC</h3>
+                                                    <p id="soc-range-label">Recent 12 records</p>
+                                                </div>
+                                                <div class="panel__chip">
+                                                    <span class="panel__dot"></span>
+                                                    <span id="chart-legend-label">Average 11 hours</span>
+                                                </div>
+                                            </div>
+                                            <canvas id="socChart"></canvas>
+                                        </article>
+
+                                        <div class="side-stack">
+                                            <article class="panel panel--gauge">
+                                                <div class="panel__header">
+                                                    <div>
+                                                        <h3>Battery Degradation</h3>
+                                                    </div>
+                                                </div>
+                                                <div class="gauge-wrap">
+                                                    <div class="gauge-ring" id="gauge-ring">
+                                                        <div class="gauge-ring__center">
+                                                            <strong id="health-score">80%</strong>
+                                                            <span>health</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="gauge-meta">
+                                                        <span>Current battery degradation</span>
+                                                        <strong id="degradation-label">20%</strong>
+                                                    </div>
+                                                </div>
+                                            </article>
+
+                                            <article class="panel panel--mini">
+                                                <div class="panel__header">
+                                                    <div>
+                                                        <h3>Total Distance Covered</h3>
+                                                    </div>
+                                                    <button id="open-location-popup" class="panel-link-button" type="button">View Map</button>
+                                                </div>
+                                                <strong class="mini-value" id="total-distance">0 km</strong>
+                                                <span class="mini-note" id="total-distance-note">Waiting for live records</span>
+                                            </article>
+
+                                            <article class="panel panel--mini">
+                                                <div class="panel__header">
+                                                    <div>
+                                                        <h3>System Signals</h3>
+                                                    </div>
+                                                </div>
+                                                <div class="signal-list">
+                                                    <div>
+                                                        <span>Critical alerts</span>
+                                                        <strong id="critical-count">0</strong>
+                                                    </div>
+                                                    <div>
+                                                        <span>Total scans</span>
+                                                        <strong id="total-records">0</strong>
+                                                    </div>
+                                                    <div>
+                                                        <span>Status</span>
+                                                        <strong id="system-status">Connected</strong>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="screen-panel" data-panel="vehicle">
+                                    <article class="panel panel--wide">
+                                        <div class="panel__header">
+                                            <div>
+                                                <h3>Vehicle Snapshot</h3>
+                                                <p>Latest pack telemetry from the prediction engine</p>
+                                            </div>
+                                        </div>
+                                        <div class="details-grid">
+                                            <div class="detail-box">
+                                                <span>Voltage</span>
+                                                <strong id="detail-voltage">-- V</strong>
+                                            </div>
+                                            <div class="detail-box">
+                                                <span>Current</span>
+                                                <strong id="detail-current">-- A</strong>
+                                            </div>
+                                            <div class="detail-box">
+                                                <span>Temperature</span>
+                                                <strong id="detail-temp">-- C</strong>
+                                            </div>
+                                            <div class="detail-box">
+                                                <span>Battery state</span>
+                                                <strong id="detail-status">--</strong>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </div>
+
+                                <div class="screen-panel" data-panel="configuration">
+                                    <article class="panel panel--wide">
+                                        <div class="panel__header">
+                                            <div>
+                                                <h3>Prediction Configuration</h3>
+                                                <p>Run a live battery assessment right from the dashboard</p>
+                                            </div>
+                                        </div>
+                                        <form id="prediction-form" class="prediction-form">
+                                            <label>
+                                                <span>Voltage (V)</span>
+                                                <input id="voltage" type="number" step="0.1" value="400" required>
+                                            </label>
+                                            <label>
+                                                <span>Current (A)</span>
+                                                <input id="current" type="number" step="0.1" value="18" required>
+                                            </label>
+                                            <label>
+                                                <span>SOC (%)</span>
+                                                <input id="soc" type="number" step="0.1" value="83" required>
+                                            </label>
+                                            <label>
+                                                <span>Temperature (C)</span>
+                                                <input id="temp" type="number" step="0.1" value="29" required>
+                                            </label>
+                                            <label>
+                                                <span>Battery Degradation (%)</span>
+                                                <input id="degradation" type="number" min="0" max="100" step="0.1" value="20" required>
+                                            </label>
+                                            <button class="submit-button" type="submit">Run Prediction</button>
+                                        </form>
+                                        <div id="prediction-result" class="result-card">
+                                            Enter live telemetry and run a prediction to update the dashboard.
+                                        </div>
+                                    </article>
+                                </div>
+
+                                <div class="screen-panel" data-panel="history">
+                                    <article class="panel panel--wide">
+                                        <div class="panel__header">
+                                            <div>
+                                                <h3>Prediction History</h3>
+                                                <p>Recent battery scans saved by the backend</p>
+                                            </div>
+                                        </div>
+                                        <div class="history-table-wrap">
+                                            <table class="history-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>ID</th>
+                                                        <th>Status</th>
+                                                        <th>Health</th>
+                                                        <th>Voltage</th>
+                                                        <th>Current</th>
+                                                        <th>SOC</th>
+                                                        <th>Temp</th>
+                                                        <th>Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="history-body">
+                                                    <tr>
+                                                        <td colspan="8">Loading history...</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </article>
+                                </div>
+
+                                <div class="screen-panel" data-panel="messages">
+                                    <article class="panel panel--wide">
+                                        <div class="panel__header">
+                                            <div>
+                                                <h3>Recommendations Feed</h3>
+                                                <p>Health actions generated from your latest prediction and recent records</p>
+                                            </div>
+                                        </div>
+                                        <div id="message-feed" class="message-feed">
+                                            <div class="message-feed__item">System ready for the next scan.</div>
+                                        </div>
+                                    </article>
+                                </div>
+
+                                <div class="screen-panel" data-panel="settings">
+                                    <article class="panel panel--wide">
+                                        <div class="panel__header">
+                                            <div>
+                                                <h3>Dashboard Settings</h3>
+                                                <p>Runtime controls for this monitoring view</p>
+                                            </div>
+                                        </div>
+                                        <div class="settings-grid">
+                                            <label class="toggle">
+                                                <input id="auto-refresh-toggle" type="checkbox" checked>
+                                                <span>Auto refresh every 30 seconds</span>
+                                            </label>
+                                            <label class="toggle">
+                                                <input id="geo-toggle" type="checkbox" checked>
+                                                <span>Allow geolocation updates</span>
+                                            </label>
+                                        </div>
+                                    </article>
+                                </div>
+
+                                <div class="screen-panel" data-panel="favorite">
+                                    <article class="panel panel--wide">
+                                        <div class="panel__header">
+                                            <div>
+                                                <h3>Favourite Metrics</h3>
+                                                <p>High-signal KPIs from the current data set</p>
+                                            </div>
+                                        </div>
+                                        <div class="details-grid">
+                                            <div class="detail-box">
+                                                <span>Average health</span>
+                                                <strong id="favorite-health">--</strong>
+                                            </div>
+                                            <div class="detail-box">
+                                                <span>Average SOC</span>
+                                                <strong id="favorite-soc">--</strong>
+                                            </div>
+                                            <div class="detail-box">
+                                                <span>Average temp</span>
+                                                <strong id="favorite-temp">--</strong>
+                                            </div>
+                                            <div class="detail-box">
+                                                <span>Average voltage</span>
+                                                <strong id="favorite-voltage">--</strong>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="laptop__base"></div>
+                </section>
+
+            </section>
+        </main>
+    </div>
+
+    <div id="geo-modal" class="geo-modal" hidden>
+        <div class="geo-modal__backdrop" data-close-geo="true"></div>
+        <section class="geo-card geo-card--modal" role="dialog" aria-modal="true" aria-labelledby="geo-modal-title">
+            <div class="geo-card__header">
+                <h3 id="geo-modal-title">Geolocation</h3>
+                <div class="geo-card__controls">
+                    <button id="location-btn" class="geo-card__action" type="button">Locate</button>
+                    <button id="close-location-popup" class="geo-card__close" type="button" aria-label="Close geolocation popup">x</button>
+                </div>
+            </div>
+            <div class="geo-map">
+                <div class="geo-map__marker"></div>
+            </div>
+            <div class="geo-card__footer">
+                <div>
+                    <span>Current location</span>
+                    <strong id="geo-coords">Waiting for browser access</strong>
+                </div>
+                <div>
+                    <span>Status</span>
+                    <strong id="geo-status">Standby</strong>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+    <script src="script.js"></script>
+</body>
+</html>
