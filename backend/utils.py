@@ -12,3 +12,16 @@ def validate_inputs(v, i, soc, temp, deg):
     if not (-30.0 <= temp <= 80.0):
         return False, "Temperature out of range [-30.0, 80.0]"
     return True, None
+
+def is_valid_telemetry(payload):
+    req_fields = ['voltage', 'current', 'soc', 'temp', 'degradation']
+    for f in req_fields:
+        if f not in payload:
+            return False, f"Missing required field: {f}"
+    return validate_inputs(
+        float(payload['voltage']),
+        float(payload['current']),
+        float(payload['soc']),
+        float(payload['temp']),
+        float(payload['degradation'])
+    )
