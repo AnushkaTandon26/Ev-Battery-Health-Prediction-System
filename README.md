@@ -8,3 +8,9 @@ Predictive health monitoring and State of Health (SOH) tracking for EV lithium-i
 - State of Charge (SOC %): 0 - 100%
 - Temperature (C): Operating cell temperature
 - Degradation Rate (%/1k cycles)
+
+## Quick Start
+```bash
+pip install -r requirements.txt
+python run.py --backend
+```
