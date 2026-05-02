@@ -27,3 +27,6 @@ def is_valid_telemetry(payload):
     )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+
+def estimate_degradation_loss(cycles, c_rate=1.0):
+    return (cycles * 0.02) * (1.0 + (c_rate - 1.0) * 0.1)
