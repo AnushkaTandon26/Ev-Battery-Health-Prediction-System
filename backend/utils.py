@@ -25,3 +25,5 @@ def is_valid_telemetry(payload):
         float(payload['temp']),
         float(payload['degradation'])
     )
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
