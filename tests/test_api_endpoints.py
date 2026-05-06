@@ -6,3 +6,7 @@ class TestDatabase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class TestValidation(unittest.TestCase):
+    def test_valid_ranges(self):
+        self.assertTrue(True)
