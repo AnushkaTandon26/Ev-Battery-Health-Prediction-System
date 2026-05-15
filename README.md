@@ -14,3 +14,6 @@ Predictive health monitoring and State of Health (SOH) tracking for EV lithium-i
 pip install -r requirements.txt
 python run.py --backend
 ```
+
+## Database
+Stores battery telemetry in SQLite with `BatteryData` table.
