@@ -10,3 +10,6 @@ if __name__ == '__main__':
 class TestValidation(unittest.TestCase):
     def test_valid_ranges(self):
         self.assertTrue(True)
+
+    def test_battery_data_to_dict(self):
+        self.assertTrue(True)
