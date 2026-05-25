@@ -15,3 +15,10 @@ def generate_synthetic_data(n_samples=2000):
     soh = np.clip(soh, 40.0, 100.0)
     df = pd.DataFrame({'voltage': voltage, 'current': current, 'soc': soc, 'temp': temp, 'degradation': deg, 'soh': soh})
     return df
+
+def prepare_features(df):
+    features = ['voltage', 'current', 'soc', 'temp', 'degradation']
+    scaler = StandardScaler()
+    X = scaler.fit_transform(df[features])
+    y = df['soh'].values
+    return X, y, scaler
