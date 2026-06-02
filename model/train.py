@@ -35,3 +35,5 @@ def build_lstm_model(input_shape):
     ])
     model.compile(optimizer='adam', loss='mse', metrics=['mae'])
     return model
+
+# Optimizer configuration: Adam with learning rate 0.001
