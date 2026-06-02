@@ -22,3 +22,16 @@ def prepare_features(df):
     X = scaler.fit_transform(df[features])
     y = df['soh'].values
     return X, y, scaler
+
+def build_lstm_model(input_shape):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+    model = Sequential([
+        Dense(64, activation='relu', input_shape=input_shape),
+        BatchNormalization(),
+        Dropout(0.2),
+        Dense(32, activation='relu'),
+        Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    return model
