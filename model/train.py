@@ -39,3 +39,5 @@ def build_lstm_model(input_shape):
 # Optimizer configuration: Adam with learning rate 0.001
 
 # Callbacks: EarlyStopping(patience=10), ModelCheckpoint('ev_model_best.keras')
+
+# Training routine complete
