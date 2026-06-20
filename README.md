@@ -17,3 +17,6 @@ python run.py --backend
 
 ## Database
 Stores battery telemetry in SQLite with `BatteryData` table.
+
+## SOH Model
+Trained deep learning model stored in `backend/model/` with fallback support.
