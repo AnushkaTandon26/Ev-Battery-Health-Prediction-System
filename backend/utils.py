@@ -155,3 +155,5 @@ def predict_battery_health(voltage, current, soc, temp, degradation_level=None, 
         "model_active": _sequence_model is not None,
         "model_error": _model_error
     }
+
+# Health tiers: Excellent (>=90%), Good (>=80%), Degraded (>=70%), Critical (<70%)
