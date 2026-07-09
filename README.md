@@ -20,3 +20,4 @@ Stores battery telemetry in SQLite with `BatteryData` table.
 
 ## SOH Model
 Trained deep learning model stored in `backend/model/` with fallback support.
+- Input features: Voltage, Current, SOC, Temperature, Degradation rate
