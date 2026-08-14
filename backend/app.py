@@ -32,3 +32,9 @@ def predict():
     db.session.commit()
     maint = generate_maintenance_plan(soh, temp, deg)
     return jsonify({'soh_prediction': soh, 'health_status': status, 'maintenance_recommendations': maint, 'record_id': rec.id})
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    limit = int(request.args.get('limit', 20))
+    records = BatteryData.query.order_by(BatteryData.id.desc()).limit(limit).all()
+    return jsonify([r.to_dict() for r in records])
