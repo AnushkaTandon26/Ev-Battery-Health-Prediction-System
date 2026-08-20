@@ -38,3 +38,11 @@ def get_history():
     limit = int(request.args.get('limit', 20))
     records = BatteryData.query.order_by(BatteryData.id.desc()).limit(limit).all()
     return jsonify([r.to_dict() for r in records])
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    records = BatteryData.query.all()
+    if not records:
+        return jsonify({'count': 0, 'average_soh': 0.0})
+    avg_soh = sum(r.soh_prediction for r in records) / len(records)
+    return jsonify({'count': len(records), 'average_soh': round(avg_soh, 2)})
