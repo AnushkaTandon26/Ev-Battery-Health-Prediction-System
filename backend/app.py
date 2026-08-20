@@ -46,3 +46,9 @@ def get_stats():
         return jsonify({'count': 0, 'average_soh': 0.0})
     avg_soh = sum(r.soh_prediction for r in records) / len(records)
     return jsonify({'count': len(records), 'average_soh': round(avg_soh, 2)})
+
+@app.route('/api/clear-history', methods=['DELETE'])
+def clear_history():
+    BatteryData.query.delete()
+    db.session.commit()
+    return jsonify({'status': 'cleared'})
