@@ -52,3 +52,11 @@ def clear_history():
     BatteryData.query.delete()
     db.session.commit()
     return jsonify({'status': 'cleared'})
+
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify({'error': 'Bad Request', 'message': str(e)}), 400
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({'error': 'Not Found', 'message': str(e)}), 404
