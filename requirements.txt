@@ -6,3 +6,11 @@ Werkzeug==3.0.3
 scikit-learn==1.6.1
 pandas==2.2.2
 numpy==2.1.0
+joblib==1.4.2
+jsonschema==4.23.0
+# TensorFlow is OPTIONAL. It is only needed to run the trained Keras sequence
+# model in backend/utils.py. Without it, the app automatically uses the
+# documented heuristic fallback predictor and discloses this via model_active/
+# model_error. Install a version compatible with your Python if you want the
+# model path, e.g.:  tensorflow==2.16.1
+# The NLG diagnostic report layer needs none of the above beyond numpy/jsonschema.

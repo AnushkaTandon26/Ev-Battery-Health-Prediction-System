@@ -1,0 +1,98 @@
+{
+  "corpus_version": "1.0",
+  "description": "Fixed evaluation corpus for the EV battery NLG diagnostic reporter. All scenarios are SYNTHETIC and authored for this academic project; they are NOT real vehicle observations and the reference reports are illustrative, not manufacturer-approved diagnostics.",
+  "data_provenance": "synthetic",
+  "scenarios": [
+    {
+      "id": "S01_normal_safe",
+      "label": "typical safe pack",
+      "telemetry": {"voltage": 400, "current": 15, "soc": 85, "temp": 28, "degradation_level": 5},
+      "prediction": {"health_score": 90.0, "status": "Safe", "recommendations": [], "model_active": true, "model_error": null},
+      "expected_finding_codes": [],
+      "required_evidence_parameters": ["voltage", "soc", "temperature"],
+      "reference_report": "The predicted battery health is 90%, classified as Safe. All readings are within the configured normal band, so routine monitoring is appropriate. No parameter crossed its review threshold."
+    },
+    {
+      "id": "S02_low_soc",
+      "label": "low state of charge",
+      "telemetry": {"voltage": 395, "current": 10, "soc": 15, "temp": 27, "degradation_level": 6},
+      "prediction": {"health_score": 82.0, "status": "Safe", "recommendations": ["Charge battery now"], "model_active": true, "model_error": null},
+      "expected_finding_codes": ["SOC_LOW"],
+      "required_evidence_parameters": ["soc"],
+      "reference_report": "The state of charge is 15%, at or below the configured low threshold. The predicted health is 82% (Safe). Recharge before the next trip if range is insufficient."
+    },
+    {
+      "id": "S03_elevated_temp",
+      "label": "elevated temperature warning",
+      "telemetry": {"voltage": 402, "current": 20, "soc": 70, "temp": 41, "degradation_level": 10},
+      "prediction": {"health_score": 68.0, "status": "Warning", "recommendations": ["Cool down battery immediately"], "model_active": true, "model_error": null},
+      "expected_finding_codes": ["TEMPERATURE_HIGH", "HEALTH_SCORE_LOW"],
+      "required_evidence_parameters": ["temperature", "health_score"],
+      "reference_report": "The temperature is 41 C, above the configured high threshold, and the predicted health is 68% (Warning). Check the cooling path and compare against the pack's rated range."
+    },
+    {
+      "id": "S04_high_current",
+      "label": "high discharge current",
+      "telemetry": {"voltage": 388, "current": -62, "soc": 60, "temp": 33, "degradation_level": 12},
+      "prediction": {"health_score": 72.0, "status": "Safe", "recommendations": ["Reduce charging/discharging rate"], "model_active": true, "model_error": null},
+      "expected_finding_codes": ["CURRENT_HIGH", "HEALTH_SCORE_LOW"],
+      "required_evidence_parameters": ["current"],
+      "reference_report": "The absolute current is 62 A (discharge), above the configured high threshold. Moderate the discharge rate and review the load profile."
+    },
+    {
+      "id": "S05_high_degradation",
+      "label": "elevated degradation index",
+      "telemetry": {"voltage": 399, "current": 12, "soc": 65, "temp": 30, "degradation_level": 38},
+      "prediction": {"health_score": 61.0, "status": "Warning", "recommendations": ["Inspect degraded cells and verify pack balancing"], "model_active": true, "model_error": null},
+      "expected_finding_codes": ["DEGRADATION_ELEVATED", "HEALTH_SCORE_LOW"],
+      "required_evidence_parameters": ["degradation_level"],
+      "reference_report": "The degradation index is 38, at or above the configured service-review level. The predicted health is 61% (Warning). Schedule a technician inspection of cell balancing."
+    },
+    {
+      "id": "S06_critical_multi",
+      "label": "multiple critical concerns",
+      "telemetry": {"voltage": 360, "current": -58, "soc": 9, "temp": 48, "degradation_level": 42},
+      "prediction": {"health_score": 30.0, "status": "Critical", "recommendations": ["Cool down battery immediately", "Charge battery now", "Schedule maintenance"], "model_active": true, "model_error": null},
+      "expected_finding_codes": ["TEMPERATURE_HIGH", "SOC_LOW", "CURRENT_HIGH", "DEGRADATION_ELEVATED", "HEALTH_SCORE_LOW"],
+      "required_evidence_parameters": ["temperature", "soc", "current", "health_score"],
+      "reference_report": "The predicted health is 30% (Critical). Temperature is 48 C (critical), state of charge is 9% (very low), current is 58 A, and the degradation index is 42. Multiple parameters need prompt review."
+    },
+    {
+      "id": "S07_fallback_model",
+      "label": "model fallback in use",
+      "telemetry": {"voltage": 400, "current": 14, "soc": 78, "temp": 29, "degradation_level": 8},
+      "prediction": {"health_score": 76.0, "status": "Safe", "recommendations": [], "model_active": false, "model_error": "TensorFlow unavailable"},
+      "expected_finding_codes": ["HEALTH_SCORE_LOW"],
+      "required_evidence_parameters": ["health_score"],
+      "reference_report": "The predicted health is 76% (Safe), produced by the fallback heuristic because the trained model was unavailable. Treat the score as indicative only."
+    },
+    {
+      "id": "S08_borderline_temp",
+      "label": "temperature exactly at review threshold",
+      "telemetry": {"voltage": 401, "current": 18, "soc": 72, "temp": 35, "degradation_level": 7},
+      "prediction": {"health_score": 83.0, "status": "Safe", "recommendations": [], "model_active": true, "model_error": null},
+      "expected_finding_codes": ["TEMPERATURE_HIGH"],
+      "required_evidence_parameters": ["temperature"],
+      "reference_report": "The temperature is 35 C, at the configured review threshold. The predicted health is 83% (Safe). Monitor the temperature trend."
+    },
+    {
+      "id": "S09_declining_trend",
+      "label": "declining health trend",
+      "telemetry": {"voltage": 398, "current": 16, "soc": 68, "temp": 31, "degradation_level": 14},
+      "prediction": {"health_score": 70.0, "status": "Warning", "recommendations": [], "model_active": true, "model_error": null},
+      "recent_records": [{"health_score": 88}, {"health_score": 80}, {"health_score": 70}],
+      "expected_finding_codes": ["HEALTH_SCORE_LOW", "HEALTH_DECLINING"],
+      "required_evidence_parameters": ["health_score"],
+      "reference_report": "The predicted health is 70% (Warning) and has fallen roughly 18 points over the last three records. Monitor the trend closely."
+    },
+    {
+      "id": "S10_conflict_safe_critical",
+      "label": "safe status but critical temperature (conflict)",
+      "telemetry": {"voltage": 400, "current": 12, "soc": 75, "temp": 50, "degradation_level": 5},
+      "prediction": {"health_score": 90.0, "status": "Safe", "recommendations": [], "model_active": true, "model_error": null},
+      "expected_finding_codes": ["TEMPERATURE_HIGH"],
+      "required_evidence_parameters": ["temperature"],
+      "reference_report": "The overall status is Safe, yet the temperature of 50 C is in the critical band. These conflicting signals should be reviewed rather than assuming the pack is problem-free."
+    }
+  ]
+}

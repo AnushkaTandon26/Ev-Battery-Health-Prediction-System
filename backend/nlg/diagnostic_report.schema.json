@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/diagnostic_report.schema.json",
+  "title": "EV Battery Diagnostic Report",
+  "description": "Proposed machine-readable output contract for the NLP/NLG diagnostic reporting extension. This schema describes planned functionality, not an existing endpoint.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "battery_record_id",
+    "generated_at",
+    "generation_method",
+    "model_status",
+    "overall_status",
+    "summary",
+    "measurements",
+    "findings",
+    "recommendations",
+    "limitations",
+    "source_snapshot"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "report_id": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "Null before persistence if the same contract is used for a generated but unsaved report."
+    },
+    "battery_record_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generation_method": {
+      "type": "string",
+      "enum": ["template_nlg", "advanced_nlg", "hybrid"]
+    },
+    "model_status": {
+      "type": "string",
+      "enum": ["keras", "fallback", "unavailable", "unknown"]
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["Safe", "Warning", "Critical", "Unknown"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 3000
+    },
+    "measurements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/measurement" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recommendation" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "source_snapshot": {
+      "type": "object",
+      "description": "Snapshot of the values actually used to produce this report.",
+      "additionalProperties": false,
+      "required": ["voltage", "current", "soc", "temp", "degradation_level", "health_score", "status"],
+      "properties": {
+        "voltage": { "type": ["number", "null"] },
+        "current": { "type": ["number", "null"] },
+        "soc": { "type": ["number", "null"] },
+        "temp": { "type": ["number", "null"] },
+        "degradation_level": { "type": ["number", "null"] },
+        "health_score": { "type": ["number", "null"] },
+        "status": { "type": "string", "enum": ["Safe", "Warning", "Critical", "Unknown"] }
+      }
+    }
+  },
+  "$defs": {
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parameter", "label", "value", "unit", "source"],
+      "properties": {
+        "parameter": {
+          "type": "string",
+          "enum": ["voltage", "current", "soc", "temperature", "degradation_level", "health_score", "other"]
+        },
+        "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "value": { "type": ["number", "null"] },
+        "unit": { "type": "string", "maxLength": 30 },
+        "source": { "type": "string", "enum": ["measured", "predicted", "user_provided", "derived"] }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parameter", "value", "unit", "source"],
+      "properties": {
+        "parameter": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "value": { "type": ["number", "string", "boolean", "null"] },
+        "unit": { "type": "string", "maxLength": 30 },
+        "source": { "type": "string", "enum": ["measured", "predicted", "historical", "configured_rule", "user_provided", "derived"] },
+        "rule_code": { "type": ["string", "null"], "maxLength": 100 },
+        "threshold_description": { "type": ["string", "null"], "maxLength": 250 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "title", "severity", "explanation", "evidence", "confidence_note"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z0-9_]{2,100}$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical", "unknown"] },
+        "explanation": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "confidence_note": { "type": ["string", "null"], "maxLength": 500 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["priority", "action", "reason", "source", "related_finding_codes"],
+      "properties": {
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "action": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "source": { "type": "string", "enum": ["rule", "maintenance_planner", "approved_manual", "other"] },
+        "related_finding_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z0-9_]{2,100}$" }
+        }
+      }
+    }
+  }
+}

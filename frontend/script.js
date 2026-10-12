@@ -7,6 +7,7 @@ const appState = {
     },
     latestRecords: [],
     latestPrediction: null,
+    latestReport: null,
     agentTasks: []
 };
 
@@ -26,6 +27,10 @@ const panelMeta = {
     history: {
         label: "Prediction archive",
         title: "Saved battery scan history"
+    },
+    report: {
+        label: "Diagnostic report",
+        title: "Natural-language battery report"
     },
     messages: {
         label: "Operations feed",
@@ -54,6 +59,7 @@ function bindUI() {
 
     document.getElementById("refresh-btn")?.addEventListener("click", refreshDashboard);
     document.getElementById("prediction-form")?.addEventListener("submit", handlePrediction);
+    document.getElementById("refresh-reports-btn")?.addEventListener("click", loadReportHistory);
     document.getElementById("open-location-popup")?.addEventListener("click", openGeoModal);
     document.getElementById("location-btn")?.addEventListener("click", requestGeolocation);
     document.getElementById("close-location-popup")?.addEventListener("click", closeGeoModal);
@@ -146,6 +152,7 @@ async function handlePrediction(event) {
     const resultNode = document.getElementById("prediction-result");
     resultNode.className = "result-card";
     resultNode.textContent = "Running prediction...";
+    setReportLoading();
 
     try {
         const result = await fetchJSON("/api/predict", {
@@ -161,22 +168,29 @@ async function handlePrediction(event) {
             input: payload,
             createdAt: new Date().toISOString()
         };
+        appState.latestReport = result.diagnostic_report || null;
 
         resultNode.className = `result-card result-card--${result.status.toLowerCase()}`;
         resultNode.innerHTML = `
-            <strong>${result.status} battery condition</strong>
+            <strong>${escapeHTML(result.status)} battery condition</strong>
             <p>Health score: ${formatPercent(result.health_score)}</p>
             <p>Battery degradation input: ${formatPercent(result.degradation_level)}</p>
-            <p>Record ID: ${result.record_id}</p>
+            <p>Record ID: ${escapeHTML(String(result.record_id))}</p>
+            ${renderModelNoticeMarkup(result)}
             <div>${renderRecommendationMarkup(result.recommendations)}</div>
             ${renderAgentPlanMarkup(result.agent_plan)}
         `;
 
         updateLatestInputDetails(payload, result);
+        renderReport(result.diagnostic_report, result.report_status, result.report_error_code);
         renderMessages(appState.latestPrediction, null, appState.latestRecords, appState.agentTasks);
-        activatePanel("overview");
+        activatePanel("report");
         await refreshDashboard();
-        showToast("Prediction completed and dashboard updated.", "success");
+        if (result.report_status === "generated") {
+            showToast("Prediction and diagnostic report ready.", "success");
+        } else {
+            showToast("Prediction saved. Report could not be generated.", "error");
+        }
     } catch (error) {
         console.error(error);
         resultNode.className = "result-card result-card--critical";
@@ -565,6 +579,165 @@ function renderTaskFeedItem(task, label) {
             </div>
         </div>
     `;
+}
+
+function escapeHTML(value) {
+    if (value === null || value === undefined) {
+        return "";
+    }
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+const SEVERITY_LABEL = {
+    critical: "Critical",
+    high: "High",
+    medium: "Medium",
+    low: "Low",
+    info: "Info",
+    unknown: "Unknown"
+};
+
+function renderModelNoticeMarkup(result) {
+    if (result.model_active) {
+        return "";
+    }
+    return `<p class="model-notice">Model notice: the trained model was unavailable, so a fallback estimate was used.</p>`;
+}
+
+function setReportLoading() {
+    const container = document.getElementById("report-container");
+    if (!container) {
+        return;
+    }
+    container.innerHTML = `<div class="report-loading">Generating diagnostic report…</div>`;
+}
+
+function renderReport(report, status, errorCode) {
+    const container = document.getElementById("report-container");
+    if (!container) {
+        return;
+    }
+
+    if (status !== "generated" || !report) {
+        container.innerHTML = `
+            <div class="report-error" role="status">
+                <strong>The diagnostic report could not be generated.</strong>
+                <p>Your prediction has been saved and is shown on the dashboard. You can retry generating the report.</p>
+                ${errorCode ? `<p class="report-error__code">Reason: ${escapeHTML(errorCode)}</p>` : ""}
+            </div>`;
+        return;
+    }
+
+    const statusClass = (report.overall_status || "unknown").toLowerCase();
+    const findings = Array.isArray(report.findings) ? report.findings : [];
+    const recommendations = Array.isArray(report.recommendations) ? report.recommendations : [];
+    const limitations = Array.isArray(report.limitations) ? report.limitations : [];
+    const measurements = Array.isArray(report.measurements) ? report.measurements : [];
+
+    const findingsMarkup = findings.length
+        ? findings.map((f) => `
+            <li class="finding finding--${escapeHTML((f.severity || "info"))}">
+                <div class="finding__head">
+                    <span class="severity-chip severity-chip--${escapeHTML((f.severity || "info"))}">${escapeHTML(SEVERITY_LABEL[f.severity] || "Info")}</span>
+                    <strong>${escapeHTML(f.title)}</strong>
+                </div>
+                <p>${escapeHTML(f.explanation)}</p>
+                <div class="finding__evidence">${(f.evidence || []).map((e) =>
+                    `<span>${escapeHTML(e.parameter)}: ${escapeHTML(formatValue(e.value))} ${escapeHTML(e.unit || "")}</span>`).join("")}</div>
+                ${f.confidence_note ? `<p class="finding__note">${escapeHTML(f.confidence_note)}</p>` : ""}
+            </li>`).join("")
+        : `<li class="finding finding--info"><p>No parameter crossed its configured review threshold.</p></li>`;
+
+    const measurementsMarkup = measurements.map((m) =>
+        `<div class="report-measure"><span>${escapeHTML(m.label)}</span><strong>${escapeHTML(formatValue(m.value))} ${escapeHTML(m.unit || "")}</strong></div>`).join("");
+
+    const recommendationsMarkup = recommendations.length
+        ? `<ul class="report-actions">${recommendations.map((r) =>
+            `<li><span class="priority-chip priority-chip--${escapeHTML(r.priority)}">${escapeHTML(r.priority)}</span>${escapeHTML(r.action)}</li>`).join("")}</ul>`
+        : `<p>No specific actions beyond routine monitoring.</p>`;
+
+    const limitationsMarkup = limitations.length
+        ? `<ul class="report-limitations">${limitations.map((l) => `<li>${escapeHTML(l)}</li>`).join("")}</ul>`
+        : "";
+
+    container.innerHTML = `
+        <div class="report-card report-card--${escapeHTML(statusClass)}">
+            <div class="report-card__status">
+                <span class="status-chip status-chip--${escapeHTML(statusClass)}">${escapeHTML(report.overall_status || "Unknown")}</span>
+                <span class="report-card__meta">Report #${escapeHTML(String(report.report_id ?? "—"))} · record #${escapeHTML(String(report.battery_record_id ?? "—"))} · ${escapeHTML(report.generated_at || "")}</span>
+            </div>
+            <h4>Summary</h4>
+            <p class="report-summary">${escapeHTML(report.summary)}</p>
+            <h4>Readings</h4>
+            <div class="report-measures">${measurementsMarkup}</div>
+            <h4>Key findings</h4>
+            <ul class="report-findings">${findingsMarkup}</ul>
+            <h4>Recommended actions</h4>
+            ${recommendationsMarkup}
+            <h4>Limitations</h4>
+            ${limitationsMarkup}
+            <div class="report-card__footer">
+                <span>Generation method: ${escapeHTML(report.generation_method || "template_nlg")}</span>
+                <span>Model: ${escapeHTML(report.model_status || "unknown")}</span>
+            </div>
+        </div>`;
+}
+
+async function loadReportHistory() {
+    const wrap = document.getElementById("report-history");
+    const list = document.getElementById("report-history-list");
+    if (!wrap || !list) {
+        return;
+    }
+    wrap.hidden = false;
+    list.innerHTML = `<li>Loading saved reports…</li>`;
+    try {
+        const reports = await fetchJSON("/api/reports?limit=20");
+        if (!Array.isArray(reports) || !reports.length) {
+            list.innerHTML = `<li>No saved reports yet. Run a prediction to create one.</li>`;
+            return;
+        }
+        list.innerHTML = reports.map((r) => `
+            <li>
+                <button type="button" class="report-history__item" data-report-id="${escapeHTML(String(r.report_id))}">
+                    <span class="status-chip status-chip--${escapeHTML((r.overall_status || "unknown").toLowerCase())}">${escapeHTML(r.overall_status || "Unknown")}</span>
+                    Report #${escapeHTML(String(r.report_id))} · record #${escapeHTML(String(r.battery_record_id))}
+                </button>
+            </li>`).join("");
+        list.querySelectorAll(".report-history__item").forEach((btn) => {
+            btn.addEventListener("click", () => openSavedReport(btn.dataset.reportId));
+        });
+    } catch (error) {
+        console.error(error);
+        list.innerHTML = `<li>Could not load report history.</li>`;
+    }
+}
+
+async function openSavedReport(reportId) {
+    try {
+        const data = await fetchJSON(`/api/reports/${reportId}`);
+        renderReport(data.report, "generated", null);
+        showToast(`Loaded report #${reportId}.`, "success");
+    } catch (error) {
+        console.error(error);
+        showToast("Could not open that report.", "error");
+    }
+}
+
+function formatValue(value) {
+    if (value === null || value === undefined || value === "") {
+        return "—";
+    }
+    const number = Number(value);
+    if (Number.isNaN(number)) {
+        return String(value);
+    }
+    return number % 1 === 0 ? String(number) : number.toFixed(1);
 }
 
 function showToast(message, tone = "success") {

@@ -66,6 +66,10 @@
                                     <span class="menu-item__icon"></span>
                                     <span>History</span>
                                 </button>
+                                <button class="menu-item" data-tab="report" type="button">
+                                    <span class="menu-item__icon"></span>
+                                    <span>Report</span>
+                                </button>
                                 <button class="menu-item" data-tab="messages" type="button">
                                     <span class="menu-item__icon"></span>
                                     <span>Message</span>
@@ -284,6 +288,27 @@
                                                     </tr>
                                                 </tbody>
                                             </table>
+                                        </div>
+                                    </article>
+                                </div>
+
+                                <div class="screen-panel" data-panel="report">
+                                    <article class="panel panel--wide">
+                                        <div class="panel__header">
+                                            <div>
+                                                <h3>Diagnostic Report</h3>
+                                                <p>Plain-English, evidence-grounded explanation of the latest prediction</p>
+                                            </div>
+                                            <button id="refresh-reports-btn" class="panel-link-button" type="button">Report history</button>
+                                        </div>
+                                        <div id="report-container" class="report-container" aria-live="polite">
+                                            <div class="report-empty" id="report-empty">
+                                                Run a prediction to generate a diagnostic report. The report explains the result, highlights the readings that need attention, and lists suggested next steps with their limitations.
+                                            </div>
+                                        </div>
+                                        <div class="report-history" id="report-history" hidden>
+                                            <h4>Saved reports</h4>
+                                            <ul id="report-history-list" class="report-history__list"></ul>
                                         </div>
                                     </article>
                                 </div>
