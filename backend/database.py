@@ -92,15 +92,53 @@ class User(db.Model):
         }
 
 
+class DiagnosticReport(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    battery_record_id = db.Column(db.Integer, nullable=True, index=True)
+    generation_method = db.Column(db.String(30), nullable=False, default="context_aware")
+    condition_label = db.Column(db.String(20), nullable=False)
+    health_score = db.Column(db.Float, nullable=True)
+    summary = db.Column(db.Text, nullable=False)
+    rendered_text = db.Column(db.Text, nullable=False)
+    report_data = db.Column(db.Text, nullable=False, default="{}")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        try:
+            parsed_data = json.loads(self.report_data or "{}")
+        except json.JSONDecodeError:
+            parsed_data = {}
+
+        return {
+            'report_id': self.id,
+            'id': self.id,
+            'battery_record_id': self.battery_record_id,
+            'generation_method': self.generation_method,
+            'condition_label': self.condition_label,
+            'health_score': self.health_score,
+            'summary': self.summary,
+            'rendered_text': self.rendered_text,
+            'measurements': parsed_data.get('measurements', []),
+            'findings': parsed_data.get('findings', []),
+            'recommended_actions': parsed_data.get('recommended_actions', []),
+            'limitations': parsed_data.get('limitations', []),
+            'provenance': parsed_data.get('provenance', {}),
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
 def ensure_schema():
     inspector = inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
 
-    if "battery_data" not in inspector.get_table_names():
-        return
+    if "battery_data" in existing_tables:
+        columns = {column["name"] for column in inspector.get_columns("battery_data")}
+        if "degradation_level" not in columns:
+            with db.engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE battery_data ADD COLUMN degradation_level FLOAT DEFAULT 0")
+                )
 
-    columns = {column["name"] for column in inspector.get_columns("battery_data")}
-    if "degradation_level" not in columns:
-        with db.engine.begin() as connection:
-            connection.execute(
-                text("ALTER TABLE battery_data ADD COLUMN degradation_level FLOAT DEFAULT 0")
-            )
+    # Ensure diagnostic_report table is created non-destructively
+    if "diagnostic_report" not in existing_tables:
+        DiagnosticReport.__table__.create(db.engine)

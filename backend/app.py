@@ -1,13 +1,49 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import json
+import sys
+from pathlib import Path
 
-from agentic_ai import build_maintenance_plan
-from database import db, BatteryData, MaintenanceTask, ensure_schema
-from utils import predict_battery_health
+# Ensure backend root is on sys.path
+backend_dir = Path(__file__).resolve().parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+root_dir = backend_dir.parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
 
-app = Flask(__name__, static_folder='../frontend', static_url_path='')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../instance/ev_battery.db'
+try:
+    from backend.database import db, BatteryData, MaintenanceTask, DiagnosticReport, ensure_schema
+    from backend.agentic_ai import build_maintenance_plan
+    from backend.utils import predict_battery_health
+    from backend.report_service import (
+        create_and_persist_report,
+        get_recent_reports,
+        get_report_by_id,
+        get_report_by_record_id
+    )
+    from backend.nlg.report_generator import generate_diagnostic_report
+except ImportError:
+    from database import db, BatteryData, MaintenanceTask, DiagnosticReport, ensure_schema
+    from agentic_ai import build_maintenance_plan
+    from utils import predict_battery_health
+    from report_service import (
+        create_and_persist_report,
+        get_recent_reports,
+        get_report_by_id,
+        get_report_by_record_id
+    )
+    from nlg.report_generator import generate_diagnostic_report
+
+FRONTEND_DIR = str(root_dir / 'frontend')
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
+
+import os
+if os.environ.get("VERCEL"):
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/ev_battery.db'
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../instance/ev_battery.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'ev-battery-secret-2024-change-in-production'
 
@@ -21,23 +57,27 @@ with app.app_context():
 # ==================== STATIC FILES ====================
 @app.route("/")
 def index():
-    return send_from_directory('../frontend', 'index.html')
+    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 @app.route("/<path:filename>")
 def serve_static(filename):
     try:
-        return send_from_directory('../frontend', filename)
-    except:
-        return send_from_directory('../frontend', 'index.html')
+        return send_from_directory(FRONTEND_DIR, filename)
+    except Exception:
+        return send_from_directory(FRONTEND_DIR, 'index.html')
 
 
 # ==================== API HOME ====================
 @app.route("/api")
 def api_home():
     return jsonify({
-        "message": "EV Battery Health Prediction API",
+        "message": "EV Battery Health Prediction & NLG Diagnostic Reporting API",
         "endpoints": {
-            "POST /api/predict": "Make prediction & save",
+            "POST /api/predict": "Make prediction, generate maintenance plan & diagnostic report",
+            "POST /api/reports/generate": "Generate or persist on-demand diagnostic report",
+            "GET /api/reports": "Recent diagnostic reports",
+            "GET /api/reports/<report_id>": "Specific diagnostic report by ID",
+            "GET /api/records/<record_id>/report": "Diagnostic report for a specific battery record",
             "GET /api/history": "Recent predictions",
             "GET /api/stats": "System stats",
             "GET /api/detailed-stats": "Detailed statistics",
@@ -53,13 +93,14 @@ def api_home():
 @app.route("/api/predict", methods=["POST"])
 def predict():
     try:
-        data = request.json
+        data = request.json or {}
         
         voltage = float(data.get("voltage", 400))
         current = float(data.get("current", 0))
         soc = float(data.get("soc", 80))
         temp = float(data.get("temp", 25))
         degradation_level = float(data.get("degradation_level", 0))
+        generation_method = data.get("generation_method", "context_aware")
 
         recent_records = BatteryData.query.order_by(BatteryData.timestamp.desc()).limit(127).all()
         recent_records = [record.to_dict() for record in reversed(recent_records)]
@@ -112,6 +153,28 @@ def predict():
             automation_notes=maintenance_plan["automation_notes"]
         )
         db.session.add(maintenance_task)
+        
+        # Generate and persist Diagnostic Report
+        diagnostic_report = None
+        report_status = "none"
+        try:
+            diagnostic_report = create_and_persist_report(
+                telemetry={
+                    "voltage": voltage,
+                    "current": current,
+                    "soc": soc,
+                    "temp": temp,
+                    "degradation_level": degradation_level
+                },
+                prediction=prediction,
+                maintenance_plan=maintenance_plan,
+                battery_record_id=battery_record.id,
+                generation_method=generation_method
+            )
+            report_status = "generated"
+        except Exception as nlg_err:
+            report_status = f"failed: {str(nlg_err)}"
+
         db.session.commit()
         
         return jsonify({
@@ -125,8 +188,100 @@ def predict():
                 "schedule_label": maintenance_plan["schedule_label"]
             },
             "model_active": prediction.get("model_active", False),
-            "model_error": prediction.get("model_error")
+            "model_error": prediction.get("model_error"),
+            "report_status": report_status,
+            "report": diagnostic_report
         }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==================== REPORT ENDPOINTS ====================
+@app.route("/api/reports/generate", methods=["POST"])
+def generate_report_endpoint():
+    try:
+        data = request.json or {}
+        telemetry = data.get("telemetry")
+        record_id = data.get("record_id")
+        method = data.get("generation_method", "context_aware")
+
+        # If record_id is supplied, we can hydrate telemetry and prediction from existing record
+        if record_id:
+            record = BatteryData.query.get(record_id)
+            if not record:
+                return jsonify({"error": f"Battery record {record_id} not found"}), 404
+            telemetry = {
+                "voltage": record.voltage,
+                "current": record.current,
+                "soc": record.soc,
+                "temp": record.temp,
+                "degradation_level": record.degradation_level or 0.0
+            }
+            prediction = {
+                "health_score": record.health_score,
+                "status": record.status,
+                "model_active": False
+            }
+            task = MaintenanceTask.query.filter_by(battery_record_id=record.id).order_by(MaintenanceTask.created_at.desc()).first()
+            maintenance_plan = task.to_dict() if task else None
+
+            report = create_and_persist_report(
+                telemetry=telemetry,
+                prediction=prediction,
+                maintenance_plan=maintenance_plan,
+                battery_record_id=record.id,
+                generation_method=method
+            )
+            return jsonify(report), 200
+
+        if not telemetry:
+            return jsonify({"error": "Missing 'telemetry' or 'record_id' payload"}), 400
+
+        prediction = data.get("prediction") or {
+            "health_score": 85.0,
+            "status": "Safe",
+            "model_active": False
+        }
+        maintenance_plan = data.get("maintenance_plan")
+
+        report = generate_diagnostic_report(
+            telemetry=telemetry,
+            prediction=prediction,
+            maintenance_plan=maintenance_plan,
+            generation_method=method
+        )
+        return jsonify(report), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/reports", methods=["GET"])
+def list_reports():
+    try:
+        limit = request.args.get("limit", 20, type=int)
+        reports = get_recent_reports(limit=limit)
+        return jsonify(reports), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/reports/<int:report_id>", methods=["GET"])
+def get_report(report_id):
+    try:
+        report = get_report_by_id(report_id)
+        if not report:
+            return jsonify({"error": "Diagnostic report not found"}), 404
+        return jsonify(report), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/records/<int:record_id>/report", methods=["GET"])
+def get_record_report(record_id):
+    try:
+        report = get_report_by_record_id(record_id)
+        if not report:
+            return jsonify({"error": f"No diagnostic report associated with record {record_id}"}), 404
+        return jsonify(report), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

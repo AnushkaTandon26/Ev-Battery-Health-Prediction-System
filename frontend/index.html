@@ -66,6 +66,10 @@
                                     <span class="menu-item__icon"></span>
                                     <span>History</span>
                                 </button>
+                                <button class="menu-item" data-tab="report" type="button">
+                                    <span class="menu-item__icon menu-item__icon--report"></span>
+                                    <span>Report</span>
+                                </button>
                                 <button class="menu-item" data-tab="messages" type="button">
                                     <span class="menu-item__icon"></span>
                                     <span>Message</span>
@@ -288,6 +292,91 @@
                                     </article>
                                 </div>
 
+                                <div class="screen-panel" data-panel="report">
+                                    <article class="panel panel--wide report-panel">
+                                        <div class="panel__header report-header">
+                                            <div>
+                                                <h3>Diagnostic Report</h3>
+                                                <p>Plain-English, evidence-grounded explanation of the latest prediction</p>
+                                            </div>
+                                            <div class="report-header__actions">
+                                                <div class="report-method-selector">
+                                                    <label for="report-method-select">NLG Method:</label>
+                                                    <select id="report-method-select" class="form-input form-input--compact">
+                                                        <option value="context_aware" selected>Context-Aware</option>
+                                                        <option value="baseline">Baseline Template</option>
+                                                    </select>
+                                                </div>
+                                                <button class="primary-button primary-button--compact" id="btn-view-report-history" type="button">
+                                                    Report History
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Report Metadata Ribbon -->
+                                        <div class="report-meta-ribbon" id="report-meta-ribbon">
+                                            <span class="report-badge report-badge--safe" id="report-status-badge">Safe</span>
+                                            <span class="report-meta-pill" id="report-id-pill">Report #--</span>
+                                            <span class="report-meta-pill" id="report-record-pill">Record #--</span>
+                                            <span class="report-meta-time" id="report-time-pill">Awaiting prediction</span>
+                                        </div>
+
+                                        <!-- Model Provenance Notice -->
+                                        <div class="report-provenance-box" id="report-provenance-box">
+                                            <span class="report-provenance-icon">ℹ️</span>
+                                            <span id="report-provenance-text">Model status: Evaluating active inference path...</span>
+                                        </div>
+
+                                        <!-- Summary Section -->
+                                        <div class="report-section">
+                                            <h4 class="report-section-title">SUMMARY</h4>
+                                            <div class="report-summary-box" id="report-summary-box">
+                                                No diagnostic report generated yet. Submit a scan via the Configuration tab to generate a plain-English explanation.
+                                            </div>
+                                        </div>
+
+                                        <!-- Telemetry Readings Cards -->
+                                        <div class="report-section">
+                                            <h4 class="report-section-title">READINGS</h4>
+                                            <div class="report-readings-grid" id="report-readings-grid">
+                                                <div class="reading-tile"><span class="reading-tile__label">Voltage</span><strong class="reading-tile__val" id="rep-val-voltage">-- V</strong></div>
+                                                <div class="reading-tile"><span class="reading-tile__label">Current</span><strong class="reading-tile__val" id="rep-val-current">-- A</strong></div>
+                                                <div class="reading-tile"><span class="reading-tile__label">State of Charge</span><strong class="reading-tile__val" id="rep-val-soc">-- %</strong></div>
+                                                <div class="reading-tile"><span class="reading-tile__label">Temperature</span><strong class="reading-tile__val" id="rep-val-temp">-- °C</strong></div>
+                                                <div class="reading-tile"><span class="reading-tile__label">Degradation level</span><strong class="reading-tile__val" id="rep-val-deg">-- %</strong></div>
+                                                <div class="reading-tile"><span class="reading-tile__label">Pack power (derived)</span><strong class="reading-tile__val" id="rep-val-power">-- W</strong></div>
+                                                <div class="reading-tile reading-tile--highlight"><span class="reading-tile__label">Predicted health score</span><strong class="reading-tile__val" id="rep-val-health">-- %</strong></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Key Findings -->
+                                        <div class="report-section">
+                                            <h4 class="report-section-title">KEY FINDINGS</h4>
+                                            <div class="report-findings-list" id="report-findings-list">
+                                                <div class="report-empty-notice">No anomalies or rules triggered.</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Recommended Actions -->
+                                        <div class="report-section">
+                                            <h4 class="report-section-title">RECOMMENDED ACTIONS</h4>
+                                            <div class="report-actions-list" id="report-actions-list">
+                                                <div class="report-empty-notice">No action items pending.</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Limitations -->
+                                        <div class="report-section">
+                                            <h4 class="report-section-title">LIMITATIONS</h4>
+                                            <ul class="report-limitations-list" id="report-limitations-list">
+                                                <li>This report is a decision-support summary and does not replace battery manufacturer guidance or a qualified technician's inspection.</li>
+                                                <li>The review thresholds used here are project defaults, not certified manufacturer limits; compare each reading against the operating range specified for this battery pack.</li>
+                                                <li>The degradation level is treated as a provided degradation index (0-100); its precise physical meaning is not defined by the current system, so it is not interpreted as a specific percentage of capacity loss.</li>
+                                            </ul>
+                                        </div>
+                                    </article>
+                                </div>
+
                                 <div class="screen-panel" data-panel="messages">
                                     <article class="panel panel--wide">
                                         <div class="panel__header">
@@ -383,6 +472,39 @@
                     <span>Status</span>
                     <strong id="geo-status">Standby</strong>
                 </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Diagnostic Report History Modal -->
+    <div id="report-modal" class="geo-modal" hidden>
+        <div class="geo-modal__backdrop" id="close-report-modal-backdrop"></div>
+        <section class="geo-card geo-card--modal report-modal-content" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+            <div class="geo-card__header">
+                <h3 id="report-modal-title">Diagnostic Reports Archive</h3>
+                <div class="geo-card__controls">
+                    <button id="close-report-modal-btn" class="geo-card__close" type="button" aria-label="Close reports modal">x</button>
+                </div>
+            </div>
+            <div class="history-table-wrap report-history-table-wrap">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Report #</th>
+                            <th>Record #</th>
+                            <th>Condition</th>
+                            <th>Health</th>
+                            <th>Method</th>
+                            <th>Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-history-body">
+                        <tr>
+                            <td colspan="7">Loading reports archive...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
     </div>

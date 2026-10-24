@@ -7,6 +7,8 @@ const appState = {
     },
     latestRecords: [],
     latestPrediction: null,
+    latestReport: null,
+    reportMethod: "context_aware",
     agentTasks: []
 };
 
@@ -26,6 +28,10 @@ const panelMeta = {
     history: {
         label: "Prediction archive",
         title: "Saved battery scan history"
+    },
+    report: {
+        label: "Diagnostic report",
+        title: "Natural-language battery report"
     },
     messages: {
         label: "Operations feed",
@@ -64,8 +70,20 @@ function bindUI() {
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
             closeGeoModal();
+            closeReportModal();
         }
     });
+
+    document.getElementById("report-method-select")?.addEventListener("change", (e) => {
+        appState.reportMethod = e.target.value;
+        if (appState.latestPrediction?.input) {
+            regenerateReportForCurrentInput(e.target.value);
+        }
+    });
+
+    document.getElementById("btn-view-report-history")?.addEventListener("click", openReportModal);
+    document.getElementById("close-report-modal-btn")?.addEventListener("click", closeReportModal);
+    document.getElementById("close-report-modal-backdrop")?.addEventListener("click", closeReportModal);
 
     document.getElementById("auto-refresh-toggle")?.addEventListener("change", (event) => {
         appState.settings.autoRefresh = event.target.checked;
@@ -106,15 +124,20 @@ function activatePanel(panelName) {
 async function refreshDashboard() {
     try {
         setSystemStatus("Syncing");
-        const [stats, detailedStats, history, agentTasks] = await Promise.all([
+        const [stats, detailedStats, history, agentTasks, reports] = await Promise.all([
             fetchJSON("/api/stats"),
             fetchJSON("/api/detailed-stats"),
             fetchJSON("/api/history?limit=12"),
-            fetchJSON("/api/agent/tasks?limit=4")
+            fetchJSON("/api/agent/tasks?limit=4"),
+            fetchJSON("/api/reports?limit=1").catch(() => [])
         ]);
 
         appState.latestRecords = Array.isArray(history) ? history : [];
         appState.agentTasks = Array.isArray(agentTasks) ? agentTasks : [];
+        if (!appState.latestReport && Array.isArray(reports) && reports.length > 0) {
+            appState.latestReport = reports[0];
+            renderReport(reports[0]);
+        }
         renderStats(stats, detailedStats, appState.latestRecords);
         renderHistory(appState.latestRecords);
         renderChart(appState.latestRecords);
@@ -135,17 +158,18 @@ async function handlePrediction(event) {
         current: getNumberValue("current"),
         soc: getNumberValue("soc"),
         temp: getNumberValue("temp"),
-        degradation_level: getNumberValue("degradation")
+        degradation_level: getNumberValue("degradation"),
+        generation_method: appState.reportMethod || "context_aware"
     };
 
-    if (Object.values(payload).some((value) => Number.isNaN(value))) {
+    if (Object.values(payload).some((value) => typeof value === "number" && Number.isNaN(value))) {
         showToast("Please enter valid battery values before prediction.", "error");
         return;
     }
 
     const resultNode = document.getElementById("prediction-result");
     resultNode.className = "result-card";
-    resultNode.textContent = "Running prediction...";
+    resultNode.textContent = "Running prediction & generating diagnostic report...";
 
     try {
         const result = await fetchJSON("/api/predict", {
@@ -162,6 +186,11 @@ async function handlePrediction(event) {
             createdAt: new Date().toISOString()
         };
 
+        if (result.report) {
+            appState.latestReport = result.report;
+            renderReport(result.report);
+        }
+
         resultNode.className = `result-card result-card--${result.status.toLowerCase()}`;
         resultNode.innerHTML = `
             <strong>${result.status} battery condition</strong>
@@ -170,13 +199,14 @@ async function handlePrediction(event) {
             <p>Record ID: ${result.record_id}</p>
             <div>${renderRecommendationMarkup(result.recommendations)}</div>
             ${renderAgentPlanMarkup(result.agent_plan)}
+            ${result.report ? `<div class="report-quick-action"><button type="button" class="primary-button primary-button--compact" onclick="activatePanel('report')">View Diagnostic Report</button></div>` : ""}
         `;
 
         updateLatestInputDetails(payload, result);
         renderMessages(appState.latestPrediction, null, appState.latestRecords, appState.agentTasks);
         activatePanel("overview");
         await refreshDashboard();
-        showToast("Prediction completed and dashboard updated.", "success");
+        showToast("Prediction completed & diagnostic report generated.", "success");
     } catch (error) {
         console.error(error);
         resultNode.className = "result-card result-card--critical";
@@ -625,4 +655,264 @@ function formatDateTime(value) {
         hour: "2-digit",
         minute: "2-digit"
     });
+}
+
+function escapeHTML(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function renderReport(report) {
+    if (!report) return;
+
+    // Status Badge & Ribbon
+    const status = report.condition_label || "Safe";
+    const badge = document.getElementById("report-status-badge");
+    if (badge) {
+        badge.className = `report-badge report-badge--${status.toLowerCase()}`;
+        badge.textContent = status;
+    }
+
+    const reportIdEl = document.getElementById("report-id-pill");
+    if (reportIdEl) {
+        reportIdEl.textContent = `Report #${report.report_id || report.id || "--"}`;
+    }
+
+    const recordIdEl = document.getElementById("report-record-pill");
+    if (recordIdEl) {
+        recordIdEl.textContent = `Record #${report.battery_record_id || "--"}`;
+    }
+
+    const timeEl = document.getElementById("report-time-pill");
+    if (timeEl) {
+        timeEl.textContent = report.created_at ? formatTimestamp(report.created_at) : "--";
+    }
+
+    // Method selector sync
+    const methodSelect = document.getElementById("report-method-select");
+    if (methodSelect && report.generation_method) {
+        methodSelect.value = report.generation_method;
+        appState.reportMethod = report.generation_method;
+    }
+
+    // Provenance Notice
+    const provText = document.getElementById("report-provenance-text");
+    if (provText) {
+        const isModel = report.provenance?.model_active;
+        if (isModel) {
+            provText.textContent = "Model source: Active Keras sequence model inference.";
+        } else {
+            provText.textContent = "Model source: Fallback heuristic calculation (trained sequence model was unavailable).";
+        }
+    }
+
+    // Summary Box
+    const summaryBox = document.getElementById("report-summary-box");
+    if (summaryBox) {
+        summaryBox.textContent = report.summary || "Summary unavailable.";
+    }
+
+    // Readings Grid
+    const measurements = report.measurements || [];
+    const mDict = {};
+    measurements.forEach((m) => {
+        mDict[m.parameter] = m;
+    });
+
+    const setTile = (id, param, unit = "") => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (mDict[param]) {
+                el.textContent = `${roundValue(mDict[param].value)} ${mDict[param].unit || unit}`;
+            } else {
+                el.textContent = "--";
+            }
+        }
+    };
+
+    setTile("rep-val-voltage", "voltage", "V");
+    setTile("rep-val-current", "current", "A");
+    setTile("rep-val-soc", "soc", "%");
+    setTile("rep-val-temp", "temp", "°C");
+    setTile("rep-val-deg", "degradation_level", "%");
+    setTile("rep-val-power", "pack_power", "W");
+
+    const healthEl = document.getElementById("rep-val-health");
+    if (healthEl) {
+        healthEl.textContent = report.health_score !== undefined ? `${roundValue(report.health_score)} %` : "-- %";
+    }
+
+    // Key Findings
+    const findingsList = document.getElementById("report-findings-list");
+    if (findingsList) {
+        const findings = report.findings || [];
+        if (!findings.length) {
+            findingsList.innerHTML = `<div class="report-empty-notice">No anomalies or rules triggered. All readings nominal.</div>`;
+        } else {
+            findingsList.innerHTML = findings.map((f) => {
+                const sev = (f.severity || "Info").toLowerCase();
+                return `
+                    <div class="finding-card finding-card--${escapeHTML(sev)}">
+                        <div class="finding-header">
+                            <span class="severity-chip severity-chip--${escapeHTML(sev)}">${escapeHTML(f.severity)}</span>
+                            <strong>${escapeHTML(f.title)}</strong>
+                        </div>
+                        <p class="finding-desc">${escapeHTML(f.description)}</p>
+                        <div class="finding-meta">
+                            <span class="evidence-pill">${escapeHTML(f.evidence_parameter)}: ${escapeHTML(f.evidence_value)}</span>
+                            ${f.qualification ? `<span class="qualification-text">${escapeHTML(f.qualification)}</span>` : ""}
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+    }
+
+    // Recommended Actions
+    const actionsList = document.getElementById("report-actions-list");
+    if (actionsList) {
+        const actions = report.recommended_actions || [];
+        if (!actions.length) {
+            actionsList.innerHTML = `<div class="report-empty-notice">No action items pending.</div>`;
+        } else {
+            actionsList.innerHTML = actions.map((a) => {
+                const prio = (a.priority || "medium").toLowerCase();
+                return `
+                    <div class="action-card">
+                        <span class="priority-chip priority-chip--${escapeHTML(prio)}">${escapeHTML(prio)}</span>
+                        <span class="action-text">${escapeHTML(a.action)}</span>
+                    </div>
+                `;
+            }).join("");
+        }
+    }
+
+    // Limitations
+    const limitsList = document.getElementById("report-limitations-list");
+    if (limitsList && Array.isArray(report.limitations)) {
+        limitsList.innerHTML = report.limitations.map((lim) => `<li>${escapeHTML(lim)}</li>`).join("");
+    }
+}
+
+async function regenerateReportForCurrentInput(method) {
+    let telemetry = appState.latestPrediction?.input;
+    let prediction = {
+        health_score: appState.latestPrediction?.health_score,
+        status: appState.latestPrediction?.status,
+        model_active: appState.latestPrediction?.model_active
+    };
+
+    if (!telemetry && appState.latestReport?.measurements) {
+        telemetry = {};
+        appState.latestReport.measurements.forEach((m) => {
+            if (["voltage", "current", "soc", "temp", "degradation_level"].includes(m.parameter)) {
+                telemetry[m.parameter] = m.value;
+            }
+        });
+        prediction = {
+            health_score: appState.latestReport.health_score ?? 85.0,
+            status: appState.latestReport.condition_label || "Safe",
+            model_active: appState.latestReport.provenance?.model_active || false
+        };
+    }
+
+    if (!telemetry || !Object.keys(telemetry).length) {
+        telemetry = {
+            voltage: getNumberValue("voltage") || 400,
+            current: getNumberValue("current") || 0,
+            soc: getNumberValue("soc") || 80,
+            temp: getNumberValue("temp") || 25,
+            degradation_level: getNumberValue("degradation") || 0
+        };
+    }
+
+    try {
+        const resp = await fetchJSON("/api/reports/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                telemetry: telemetry,
+                prediction: prediction,
+                generation_method: method
+            })
+        });
+        if (resp && !resp.error) {
+            appState.latestReport = resp;
+            renderReport(resp);
+            showToast(`Report regenerated using ${method === "baseline" ? "Baseline Template" : "Context-Aware"} method.`, "success");
+        }
+    } catch (e) {
+        console.error("Failed to regenerate report:", e);
+    }
+}
+
+async function openReportModal() {
+    const modal = document.getElementById("report-modal");
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.style.overflow = "hidden";
+    await loadReportHistory();
+}
+
+function closeReportModal() {
+    const modal = document.getElementById("report-modal");
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.style.overflow = "";
+}
+
+async function loadReportHistory() {
+    const tbody = document.getElementById("report-history-body");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7">Loading reports archive...</td></tr>`;
+
+    try {
+        const reports = await fetchJSON("/api/reports?limit=25");
+        if (!Array.isArray(reports) || !reports.length) {
+            tbody.innerHTML = `<tr><td colspan="7">No saved reports in database yet.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = reports.map((r) => {
+            const cond = (r.condition_label || "Safe").toLowerCase();
+            return `
+                <tr>
+                    <td><strong>#${r.report_id || r.id}</strong></td>
+                    <td>#${r.battery_record_id || "--"}</td>
+                    <td><span class="report-badge report-badge--${cond}">${escapeHTML(r.condition_label)}</span></td>
+                    <td>${formatPercent(r.health_score)}</td>
+                    <td><code>${escapeHTML(r.generation_method)}</code></td>
+                    <td>${formatTimestamp(r.created_at)}</td>
+                    <td>
+                        <button class="primary-button primary-button--compact" onclick="viewSelectedReport(${r.report_id || r.id})">
+                            View
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="7">Failed to load reports archive.</td></tr>`;
+    }
+}
+
+async function viewSelectedReport(reportId) {
+    try {
+        const report = await fetchJSON(`/api/reports/${reportId}`);
+        if (report && !report.error) {
+            appState.latestReport = report;
+            renderReport(report);
+            closeReportModal();
+            activatePanel("report");
+            showToast(`Loaded Report #${reportId}`, "success");
+        }
+    } catch (e) {
+        showToast("Error loading selected report.", "error");
+    }
 }

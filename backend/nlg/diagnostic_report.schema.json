@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DiagnosticReport",
+  "type": "object",
+  "required": [
+    "generation_method",
+    "condition_label",
+    "summary",
+    "measurements",
+    "findings",
+    "recommended_actions",
+    "limitations",
+    "created_at"
+  ],
+  "properties": {
+    "report_id": {
+      "type": ["integer", "null"]
+    },
+    "battery_record_id": {
+      "type": ["integer", "null"]
+    },
+    "generation_method": {
+      "type": "string",
+      "enum": ["baseline", "context_aware"]
+    },
+    "condition_label": {
+      "type": "string",
+      "enum": ["Safe", "Warning", "Critical"]
+    },
+    "health_score": {
+      "type": "number"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["parameter", "value", "unit"],
+        "properties": {
+          "parameter": { "type": "string" },
+          "value": { "type": "number" },
+          "unit": { "type": "string" },
+          "display_name": { "type": "string" }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "severity", "title", "description", "evidence_parameter", "evidence_value"],
+        "properties": {
+          "rule_id": { "type": "string" },
+          "severity": { "type": "string", "enum": ["Info", "Low", "Medium", "High", "Critical"] },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "evidence_parameter": { "type": "string" },
+          "evidence_value": { "type": ["number", "string", "null"] },
+          "qualification": { "type": "string" }
+        }
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action", "priority"],
+        "properties": {
+          "action": { "type": "string" },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "model_active": { "type": "boolean" },
+        "prediction_source": { "type": "string" },
+        "evaluated_rules_count": { "type": "integer" }
+      }
+    },
+    "created_at": {
+      "type": "string"
+    }
+  }
+}
