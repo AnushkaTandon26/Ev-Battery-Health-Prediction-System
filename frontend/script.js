@@ -700,16 +700,6 @@ function renderReport(report) {
         appState.reportMethod = report.generation_method;
     }
 
-    // Provenance Notice
-    const provText = document.getElementById("report-provenance-text");
-    if (provText) {
-        const isModel = report.provenance?.model_active;
-        if (isModel) {
-            provText.textContent = "Model source: Active Keras sequence model inference.";
-        } else {
-            provText.textContent = "Model source: Fallback heuristic calculation (trained sequence model was unavailable).";
-        }
-    }
 
     // Summary Box
     const summaryBox = document.getElementById("report-summary-box");
